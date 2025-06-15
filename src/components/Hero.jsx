@@ -44,6 +44,11 @@ const navigate = useNavigate();
               >
                 Start voting
               </button>
+              <button onClick={() => navigate("/referenda")}
+                className="rounded-md bg-[#e6007a] px-3.5 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-[#e6007bc8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+              >
+                Referenda
+              </button>
               
             </div>
           </div>

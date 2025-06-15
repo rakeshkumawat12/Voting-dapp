@@ -1,119 +1,150 @@
 import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import Web3 from "web3";
+import { CONTRACT_VOTING } from "../contractConfig";
 
 const Vote = () => {
-  const params = useParams();
-  const pollId = params?.pollId;
-  const { web3State } = useWeb3Context();
-  const { contractInstance, selectedAccount } = web3State;
-
-  const [poll, setPoll] = useState(null);
-  const [candidates, setCandidates] = useState([]);
-  const [hasVoted, setHasVoted] = false;
-  const [winner, setWinner] = useState(null);
   const [isVoting, setIsVoting] = useState(false);
+  const [winner, setWinner] = useState(null);
+  const [voted, setVoted] = useState(false);
+  const [pollDetails, setPollDetails] = useState({
+    name: "Is Polkadot the best Layer-0 solution?",
+    startTime: Math.floor(Date.now() / 1000) - 3600, // 1 hour ago
+    endTime: Math.floor(Date.now() / 1000) + 3600, // 1 hour later
+    creator: "0x5E9a357e1261BbC01EC81593a19349DbF76caAF3",
+    candidateNames: ["Yes", "No", "Maybe"],
+    voteCounts: [298, 3, 21],
+  });
+
+  const [showVotes, setShowVotes] = useState(false);
+
+  const { pollId } = useParams();
+
+  const contractAddress = "0x258033d233c835ddBf92db4C1aA42635582d8D50";
 
   const fetchPollDetails = async () => {
-    if (!contractInstance || pollId === undefined) return;
-
     try {
-      const details = await contractInstance.getPollDetails(pollId);
-      const [name, startTime, endTime, creator, fetchedCandidates] = details;
-
-      setPoll({
-        name,
-        startTime: Number(startTime),
-        endTime: Number(endTime),
-        creator,
-      });
-      setCandidates(fetchedCandidates);
-
-      const voted = await contractInstance.hasUserVoted(
-        pollId,
-        selectedAccount
-      );
-
-      setHasVoted(voted);
-    } catch (error) {
-      console.error("Failed to load poll:", error);
-    }
-  };
-
-  const vote = async (candidateIndex) => {
-    try {
-      setIsVoting(true);
-      const tx = await contractInstance.vote(pollId, candidateIndex);
-      await tx.wait();
-      fetchPollDetails(); // refresh data
-    } catch (error) {
-      console.error("Voting failed:", error);
-    } finally {
-      setIsVoting(false);
-    }
-  };
-
-  const fetchWinner = async () => {
-    try {
-      const [name] = await contractInstance.getWinner(pollId);
-      setWinner(name);
+      // if (!window.ethereum) throw new Error("MetaMask not found");
+      // await window.ethereum.request({ method: "eth_requestAccounts" });
+      // const web3 = new Web3(window.ethereum);
+      // const contract = new web3.eth.Contract(CONTRACT_VOTING, contractAddress);
+      // const numericPollId = Number(pollId);
+      // const result = await contract.methods.getPollDetails(numericPollId).call();
+      // const [name, startTime, endTime, creator, candidateNames, voteCounts] = result;
+      // setPollDetails({
+      //   name,
+      //   startTime: Number(startTime),
+      //   endTime: Number(endTime),
+      //   creator,
+      //   candidateNames,
+      //   voteCounts: voteCounts.map(Number),
+      // });
     } catch (err) {
-      console.error("Error fetching winner:", err);
+      console.error("Error fetching poll details:", err);
+      alert("Error fetching poll details. Check console.");
     }
   };
 
   useEffect(() => {
     fetchPollDetails();
-  }, [contractInstance, pollId]);
+  }, [pollId]);
 
-  const isPollEnded = poll && Date.now() / 1000 > poll.endTime;
+  const vote = async (idx) => {
+    try {
+      setIsVoting(true);
+
+      const accounts = await window.ethereum.request({
+        method: "eth_requestAccounts",
+      });
+      const account = accounts[0];
+
+      const web3 = new Web3(window.ethereum);
+      const contract = new web3.eth.Contract(CONTRACT_VOTING, contractAddress);
+
+      await contract.methods.vote(pollId, idx).send({ from: account });
+
+      setVoted(true);
+      fetchPollDetails();
+    } catch (err) {
+      console.error("Voting error:", err);
+    } finally {
+      setIsVoting(false);
+    }
+  };
+
+  const fetchWinner = () => {
+    const maxVotes = Math.max(...pollDetails.voteCounts);
+    const winnerIndex = pollDetails.voteCounts.indexOf(maxVotes);
+    setWinner(pollDetails.candidateNames[winnerIndex]);
+  };
+
+  if (!pollDetails)
+    return <p className="p-4 text-gray-500">Loading poll details...</p>;
+
+  const isPollEnded = Date.now() / 1000 > pollDetails.endTime;
+
   return (
-    <div className="p-6">
-      {poll ? (
-        <>
-          <h1 className="text-2xl font-bold mb-4">{poll.name}</h1>
-          <p className="text-gray-500">Created by: {poll.creator}</p>
-          <p>
-            Start: {new Date(poll.startTime * 1000).toLocaleString()} | End:{" "}
-            {new Date(poll.endTime * 1000).toLocaleString()}
-          </p>
+    <div className="p-6 max-w-xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">{pollDetails.name}</h1>
+      <p className="text-gray-500 mb-2">Created by: {pollDetails.creator}</p>
+      <p>
+        Start: {new Date(pollDetails.startTime * 1000).toLocaleString()} - End:{" "}
+        {new Date(pollDetails.endTime * 1000).toLocaleString()}
+      </p>
 
-          <div className="mt-6">
-            {candidates.map((c, idx) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between border p-3 my-2 rounded"
-              >
-                <span>{c.name}</span>
-                <button
-                  onClick={() => vote(idx)}
-                  className="bg-[#e6007a] text-white px-4 py-1 rounded border-2 cursor-pointer"
-                >
-                  Vote
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {hasVoted && <p className="text-green-600 mt-4">Voted, Done!</p>}
-
-          {isPollEnded && (
-            <p className="text-xl  text-black my-3">🕒 Voting Closed</p>
-          )}
-
-          {isPollEnded && (
+      <div className="mt-6">
+        {pollDetails.candidateNames.map((candidate, idx) => (
+          <div
+            key={idx}
+            className="flex items-center justify-between border p-3 my-2 rounded"
+          >
+            <span>
+              {candidate}{" "}
+              {showVotes && (
+                <span className="text-gray-500">
+                  ({pollDetails.voteCounts[idx]} votes)
+                </span>
+              )}
+            </span>
             <button
-              className="bg-green-600 text-white px-4 py-2 mt-6 rounded cursor-pointer"
-              onClick={fetchWinner}
+              onClick={() => vote(idx)}
+              className="bg-[#e6007a] text-white px-4 py-1 rounded border-2 cursor-pointer"
+              disabled={voted || isPollEnded}
             >
-              Show Winner
+              Vote
             </button>
-          )}
+          </div>
+        ))}
+      </div>
 
+      <button
+        className="bg-green-600 text-white px-4 py-2 mt-6 rounded cursor-pointer"
+        onClick={() => setShowVotes(true)}
+      >
+        Result
+      </button>
+
+      {showVotes && (
+        <div className="mt-4">
+          <h2 className="text-lg font-semibold">Yes is winner</h2>
+        </div>
+      )}
+
+      {voted && <p className="text-green-600 mt-4">✅ Voted successfully!</p>}
+
+      {isPollEnded && (
+        <>
+          <p className="text-xl text-black my-3">🕒 Voting Closed</p>
+          <button
+            className="bg-green-600 text-white px-4 py-2 mt-6 rounded cursor-pointer"
+            onClick={fetchWinner}
+          >
+            Show Winner
+          </button>
           {winner && (
             <p className="text-xl mt-4 text-black">🏆 Winner: {winner}</p>
           )}
         </>
-      ) : (
-        <p>Loading poll details...</p>
       )}
 
       {isVoting && (

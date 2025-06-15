@@ -6,6 +6,7 @@ import Landing from "./pages/Landing";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Vote from "./pages/Vote";
 import Header from "./components/Header";
+import Referenda from "./pages/Referenda"
 
 function App() {
   return (
@@ -16,7 +17,8 @@ function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/createpoll" element={<CreatePoll />} />
           <Route path="/allpolls" element={<AllPolls />} />
-          <Route path="/poll/pollId" element={<Vote />} />
+          <Route path="/poll/:pollId" element={<Vote />} />
+          <Route path="/referenda" element={<Referenda />} />
         </Routes>
       </BrowserRouter>
     </div>

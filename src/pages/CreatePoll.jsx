@@ -1,6 +1,9 @@
 import { useState } from "react";
 import logo from "../../src/assets/logo.png";
 
+import web3 from "web3";
+import { CONTRACT_POLL_LOGIC_ABI } from "../contractConfig";
+
 const CreatePoll = () => {
   const [title, setTitle] = useState("");
   const [options, setOptions] = useState(["", ""]);
@@ -12,6 +15,25 @@ const CreatePoll = () => {
       const filteredOptions = options.filter((opt) => opt.trim() !== "");
 
       setLoading(true);
+
+      const accounts = await window.ethereum.request({
+        method: "eth_requestAccounts",
+      });
+      const account = accounts[0];
+
+      const contractAddress = "0xB21B6886a6015E5efa6CA3e1B3107A702b15f84e";
+      const web3Instance = new web3(window.ethereum);
+
+      const contract = new web3Instance.eth.Contract(
+        CONTRACT_POLL_LOGIC_ABI,
+        contractAddress
+      );
+
+      await contract.methods
+        .createPoll(title, filteredOptions, duration)
+        .send({ from: account });
+
+      alert("Poll created successfully!");
 
       alert("Poll created successfully!");
       setTitle("");
@@ -30,15 +52,15 @@ const CreatePoll = () => {
     newOptions[index] = value;
     setOptions(newOptions);
   };
-  
+
   return (
     <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-sm">
+      {/* <div className="sm:mx-auto sm:w-full sm:max-w-sm">
         <img alt="Voting dapp" src={logo} className="mx-auto h-20 w-auto" />
         <h2 className="mt-2 text-center text-2xl/9 font-bold tracking-tight text-gray-900">
           Create Poll
         </h2>
-      </div>
+      </div> */}
 
       <div className="mt-5 sm:mx-auto sm:w-full sm:max-w-sm">
         <div>
